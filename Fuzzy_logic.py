@@ -304,11 +304,15 @@ def token_based_score(a, b):
 # ============================================================
 
 def final_match_score(a, b, **kwargs):
+
     if not a or not b:
         return 0
 
-    a_set = set(a.split())
-    b_set = set(b.split())
+    a_tokens = a.split()
+    b_tokens = b.split()
+
+    a_set = set(a_tokens)
+    b_set = set(b_tokens)
 
     # HARD RULES
     if has_conflicting_region(a, b):
@@ -317,27 +321,28 @@ def final_match_score(a, b, **kwargs):
     if insurance_conflict(a, b):
         return 0
 
-    # First token validation
-    a_first = a.split()[0]
-    b_first = b.split()[0]
+    # -------- STRICT FIRST WORD CONTROL --------
+    a_first = a_tokens[0]
+    b_first = b_tokens[0]
 
-    if not (
-        is_acronym_match(a, b)
-        or fuzz.ratio(a_first, b_first) >= 85
-        or len(a_set & b_set) >= 2
-    ):
+    first_word_score = fuzz.ratio(a_first, b_first)
+
+    strong_overlap = len(a_set & b_set) >= 2
+
+    # Require strong first word OR strong token overlap
+    if not (first_word_score >= 90 or strong_overlap):
         return 0
 
-    # Ensure at least 50% token overlap
+    # -------- TOKEN COVERAGE RULE --------
     matched_count = sum(
-        1 for t1 in a.split()
-        if any(fuzz.ratio(t1, t2) > 80 for t2 in b.split())
+        1 for t1 in a_tokens
+        if any(fuzz.ratio(t1, t2) > 85 for t2 in b_tokens)
     )
 
-    if matched_count / len(a.split()) < 0.5:
+    if matched_count / len(a_tokens) < 0.6:
         return 0
 
-    # Score Calculation
+    # -------- SCORE CALCULATION --------
     token_score = token_based_score(a, b)
 
     fuzzy_score = (
@@ -346,17 +351,15 @@ def final_match_score(a, b, **kwargs):
         0.2 * fuzz.token_sort_ratio(a, b)
     )
 
-    final_score = 0.7 * token_score + 0.3 * fuzzy_score
+    final_score = 0.75 * token_score + 0.25 * fuzzy_score
 
-    # Substring boost
-    if a in b or b in a:
-        final_score += 10
-
-    # Acronym bonus
-    if is_acronym_match(a, b):
-        final_score += 20
+    # -------- STRICT ACRONYM BONUS --------
+    # Only allow acronym bonus if acronym length >= 4
+    if is_acronym_match(a, b) and len(get_acronym(a)) >= 4:
+        final_score += 15
 
     return min(100, final_score)
+
 
 # ============================================================
 # MATCHING FUNCTION

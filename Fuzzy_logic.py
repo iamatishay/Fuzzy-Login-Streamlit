@@ -387,7 +387,6 @@ def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
     for p in str(main_name).split("/"):
         parts.extend(expand_name_variants(p.strip()))
 
-
     best_match = None
     best_score = 0
 
@@ -400,8 +399,7 @@ def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
         result = process.extractOne(
             main_clean,
             cleaned_choices,
-            scorer=final_match_score,
-            score_cutoff=threshold
+            scorer=final_match_score
         )
 
         if result:
@@ -410,10 +408,19 @@ def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
                 best_score = score
                 best_match = original_choices[idx]
 
-    if best_score >= threshold:
-        return best_match, round(best_score, 2), "High Confidence"
+    # ==========================
+    # Confidence Classification
+    # ==========================
+    if best_match:
+        if 92 <= best_score <= 100:
+            confidence = "High Confidence"
+        else:
+            confidence = "Low Confidence"
+
+        return best_match, round(best_score, 2), confidence
 
     return None, 0.0, "No Match"
+
 
 # ============================================================
 # STREAMLIT UI

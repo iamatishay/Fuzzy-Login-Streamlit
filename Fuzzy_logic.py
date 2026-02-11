@@ -299,11 +299,32 @@ def token_based_score(a, b):
 
     return (weighted_sum / max_possible) * 100
 
+def expand_name_variants(name):
+    
+    variants = [name]
+
+        # Extract bracket content
+    bracket_match = re.search(r"\((.*?)\)", name)
+    if bracket_match:
+        inside = bracket_match.group(1)
+        outside = re.sub(r"\(.*?\)", "", name).strip()
+
+        variants.append(inside)
+        variants.append(outside)
+
+    return list(set(variants))
+
+
 # ============================================================
 # FINAL MATCH ENGINE
 # ============================================================
 
 def final_match_score(a, b, **kwargs):
+
+    # Strong substring rule (exact containment)
+    if a in b or b in a:
+        return 95
+
 
     if not a or not b:
         return 0
@@ -362,7 +383,10 @@ def find_best_match(main_name, cleaned_choices, original_choices, threshold=80):
     if not main_name:
         return None, 0, "No Match"
 
-    parts = [p.strip() for p in str(main_name).split("/") if p.strip()]
+    parts = []
+    for p in str(main_name).split("/"):
+        parts.extend(expand_name_variants(p.strip()))
+
 
     best_match = None
     best_score = 0

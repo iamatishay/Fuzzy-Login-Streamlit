@@ -318,27 +318,25 @@ def final_match_score(a, b, **kwargs):
     b_first = b_tokens[0]
 
     # ---------------------------------------------------
-    # CHARACTER-LEVEL MATCH CHECK (STRICT 80% RULE)
+    # 80% CHARACTER MATCH RULE (ORDER INDEPENDENT)
     # ---------------------------------------------------
-    shorter_len = min(len(a_first), len(b_first))
-    matching_chars = sum(
-        1 for c1, c2 in zip(a_first, b_first)
-        if c1 == c2
+    shorter = min(len(a_first), len(b_first))
+
+    common_chars = sum(
+        min(a_first.count(c), b_first.count(c))
+        for c in set(a_first)
     )
 
-    char_match_percent = (matching_chars / shorter_len) * 100 if shorter_len > 0 else 0
+    char_match_percent = (common_chars / shorter) * 100 if shorter > 0 else 0
 
-    # If less than 80% character match → first word weight = 0
-    if char_match_percent >= 80:
-        first_word_weight = 1
-        first_word_score = fuzz.ratio(a_first, b_first)
-    else:
-        first_word_weight = 0
-        first_word_score = 0
+    # If first word < 80% → reject completely
+    if char_match_percent < 80:
+        return 0
 
-    # ---------------------------------------------------
-    # REMAINING WORDS SCORE
-    # ---------------------------------------------------
+    # Strong first word score
+    first_word_score = fuzz.ratio(a_first, b_first)
+
+    # Remaining tokens similarity
     remaining_a = " ".join(a_tokens[1:])
     remaining_b = " ".join(b_tokens[1:])
 
@@ -347,14 +345,11 @@ def final_match_score(a, b, **kwargs):
         remaining_score = fuzz.token_set_ratio(remaining_a, remaining_b)
 
     # ---------------------------------------------------
-    # FINAL SCORE CALCULATION
+    # FINAL WEIGHTING
+    # 80% first word
+    # 20% remaining words
     # ---------------------------------------------------
-    # First word weight = 70% (only if 80% characters match)
-    # Remaining words = 30%
-    final_score = (
-        (0.7 * first_word_score * first_word_weight) +
-        (0.3 * remaining_score)
-    )
+    final_score = (0.8 * first_word_score) + (0.2 * remaining_score)
 
     return round(min(100, final_score), 2)
 

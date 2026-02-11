@@ -3,9 +3,6 @@ import pandas as pd
 from rapidfuzz import fuzz, process
 import re
 
-st.set_page_config(page_title="Fuzzy Logic", layout="wide")
-st.title("🔍 Fuzzy Logic")
-
 st.set_page_config(
     page_title="Fuzzy Logic Name Matching Tool",
     layout="wide",

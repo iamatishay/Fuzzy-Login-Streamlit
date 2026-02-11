@@ -198,6 +198,10 @@ def is_acronym_match(a, b):
 # ============================================================
 # 3. Cleaning Functions
 # ============================================================
+# ============================================================
+# CLEANING FUNCTIONS
+# ============================================================
+
 def normalize_variants(s):
     for k, v in REPLACEMENTS.items():
         s = re.sub(rf"\b{k}\b", v, s)
@@ -216,8 +220,15 @@ def strip_stopwords(s):
     if not s:
         return None
     tokens = s.split()
-    tokens = [t for t in tokens if t not in STOPWORDS or t in ESSENTIALS]
-    return " ".join(tokens) if tokens else s
+    tokens = [
+        t for t in tokens
+        if (t not in STOPWORDS) or (t in ESSENTIALS)
+    ]
+    return " ".join(tokens) if tokens else None
+
+# ============================================================
+# HARD VALIDATION RULES
+# ============================================================
 
 def has_conflicting_region(a, b):
     a_tokens = set(a.split())
@@ -236,79 +247,108 @@ def insurance_conflict(a, b):
     return False
 
 # ============================================================
-# 4. TOKEN-BASED SCORING ENGINE
+# ACRONYM LOGIC
 # ============================================================
+
+def get_acronym(s):
+    words = [w for w in s.split() if w not in STOPWORDS]
+    return "".join(w[0] for w in words if w)
+
+def is_acronym_match(a, b):
+    a_acr = get_acronym(a)
+    b_acr = get_acronym(b)
+
+    if a_acr == b_acr:
+        return True
+
+    if len(a_acr) < len(b_acr) and a_acr in b_acr:
+        return True
+
+    if len(b_acr) < len(a_acr) and b_acr in a_acr:
+        return True
+
+    if fuzz.ratio(a_acr, b_acr) > 85:
+        return True
+
+    return False
+
+# ============================================================
+# TOKEN SCORING ENGINE (LEGAL WORDS HAVE ZERO WEIGHT)
+# ============================================================
+
 def token_based_score(a, b):
     a_tokens = a.split()
     b_tokens = b.split()
+
+    if not a_tokens or not b_tokens:
+        return 0
+
     token_matches = []
+
     for t1 in a_tokens:
         best = 0
         for t2 in b_tokens:
             best = max(best, fuzz.ratio(t1, t2))
         token_matches.append(best)
+
+    # First meaningful word gets weight 1.5
     weights = [1.5] + [1.0] * (len(token_matches) - 1)
+
     weighted_sum = sum(t * w for t, w in zip(token_matches, weights))
     max_possible = sum(weights) * 100
+
     return (weighted_sum / max_possible) * 100
 
 # ============================================================
-# 5. FINAL SCORING ENGINE (HARD RULES + TOKEN ENGINE)
+# FINAL MATCH ENGINE
 # ============================================================
+
 def final_match_score(a, b, **kwargs):
     if not a or not b:
         return 0
 
-    a_tokens = a.split()
-    b_tokens = b.split()
-    a_set = set(a_tokens)
-    b_set = set(b_tokens)
-
-    a1 = a_tokens[0]
-    b1 = b_tokens[0]
-    a2 = a_tokens[1] if len(a_tokens) > 1 else ""
-    b2 = b_tokens[1] if len(b_tokens) > 1 else ""
+    a_set = set(a.split())
+    b_set = set(b.split())
 
     # HARD RULES
     if has_conflicting_region(a, b):
         return 0
+
     if insurance_conflict(a, b):
         return 0
-    if ("BANK" in a_set and SERVICE_WORDS & b_set) or \
-       ("BANK" in b_set and SERVICE_WORDS & a_set):
-        return 0
-    if a1 in MESSAGE_WORDS and b1 in MESSAGE_WORDS:
-        if fuzz.ratio(a2, b2) < 90:
-            return 0
-    if a1 in TELECOM_WORDS and b1 in TELECOM_WORDS:
-        if fuzz.ratio(a1, b1) < 95:
-            return 0
-    if a1 == "TITAN" and b1 == "TITAN":
-        if fuzz.ratio(a2, b2) < 90:
-            return 0
-    # Skip first word check if acronym match
+
+    # First token validation
+    a_first = a.split()[0]
+    b_first = b.split()[0]
+
     if not (
-    is_acronym_match(a, b)
-    or fuzz.ratio(a1, b1) >= 85
-    or len(a_set & b_set) >= 2
+        is_acronym_match(a, b)
+        or fuzz.ratio(a_first, b_first) >= 85
+        or len(a_set & b_set) >= 2
     ):
         return 0
 
-    # Ensure at least 50% of words match above 80% to prevent false positives
-    matched_count = sum(1 for t1 in a_tokens if any(fuzz.ratio(t1, t2) > 80 for t2 in b_tokens))
-    if matched_count / len(a_tokens) < 0.5:
+    # Ensure at least 50% token overlap
+    matched_count = sum(
+        1 for t1 in a.split()
+        if any(fuzz.ratio(t1, t2) > 80 for t2 in b.split())
+    )
+
+    if matched_count / len(a.split()) < 0.5:
         return 0
 
-    # TOKEN + FUZZY SCORE
+    # Score Calculation
     token_score = token_based_score(a, b)
+
     fuzzy_score = (
         0.5 * fuzz.token_set_ratio(a, b) +
         0.3 * fuzz.partial_ratio(a, b) +
         0.2 * fuzz.token_sort_ratio(a, b)
     )
-    final_score = 0.7 * token_score + 0.3 * fuzz.token_set_ratio(a, b)
 
-    # Substring booster
+    final_score = 0.7 * token_score + 0.3 * fuzzy_score
+
+    # Substring boost
     if a in b or b in a:
         final_score += 10
 
@@ -319,134 +359,107 @@ def final_match_score(a, b, **kwargs):
     return min(100, final_score)
 
 # ============================================================
-# 6. MATCHING FUNCTION (IMPROVED FOR SLASH-SEPARATED NAMES)
+# MATCHING FUNCTION
 # ============================================================
+
 def find_best_match(main_name, cleaned_choices, original_choices, threshold=80):
+
     if not main_name:
         return None, 0, "No Match"
 
-    # Split the main name by "/" to handle multiple entities
     parts = [p.strip() for p in str(main_name).split("/") if p.strip()]
-    
-    best_overall_match = None
-    best_overall_score = 0
-    best_overall_type = "No Match"
-    
+
+    best_match = None
+    best_score = 0
+
     for part in parts:
+
         main_clean = strip_stopwords(clean_text(part))
         if not main_clean:
             continue
-        
-        # Use RapidFuzz process.extractOne for efficient best match
-        result = process.extractOne(main_clean, cleaned_choices, scorer=final_match_score, score_cutoff=threshold)
+
+        result = process.extractOne(
+            main_clean,
+            cleaned_choices,
+            scorer=final_match_score,
+            score_cutoff=threshold
+        )
+
         if result:
-            _, score, match_idx = result  # choice, score, index
-            if score > best_overall_score:
-                best_overall_match = original_choices[match_idx]
-                best_overall_score = score
-                best_overall_type = "High Confidence"
-    
-    if best_overall_score >= threshold:
-        return best_overall_match, round(best_overall_score, 2), best_overall_type
+            _, score, idx = result
+            if score > best_score:
+                best_score = score
+                best_match = original_choices[idx]
+
+    if best_score >= threshold:
+        return best_match, round(best_score, 2), "High Confidence"
+
     return None, 0.0, "No Match"
 
 # ============================================================
-# UI (WITH IMPROVEMENTS)
+# STREAMLIT UI
 # ============================================================
 
-# ============================================================
-# UI (WITH IMPROVEMENTS)
-# ============================================================
-uploaded_file = st.file_uploader(
-    "📤 Upload file",
-    type=["csv", "xlsx"]
-)
+st.title("🔍 Fuzzy Logic Name Matching Tool")
+
+uploaded_file = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
 if uploaded_file:
-    try:
-        if uploaded_file.name.endswith(".xlsx"):
-            df = pd.read_excel(uploaded_file)
-        else:
+
+    if uploaded_file.name.endswith(".xlsx"):
+        df = pd.read_excel(uploaded_file)
+    else:
+        uploaded_file.seek(0)
+        try:
+            df = pd.read_csv(uploaded_file, encoding="utf-8")
+        except:
             uploaded_file.seek(0)
-            try:
-                df = pd.read_csv(uploaded_file, encoding="utf-8")
-            except UnicodeDecodeError:
-                uploaded_file.seek(0)
-                df = pd.read_csv(uploaded_file, encoding="latin1")
+            df = pd.read_csv(uploaded_file, encoding="latin1")
 
-    except pd.errors.EmptyDataError:
-        st.error("❌ File is empty or invalid.")
-        st.stop()
-
-    st.subheader("Preview")
     st.dataframe(df.head())
 
-    columns = list(df.columns)
+    source_col = st.selectbox("Source Column", df.columns, index=0)
+    target_col = st.selectbox("Target Column", df.columns, index=1)
 
-    source_col = st.selectbox(
-        "Source column (Match FROM)",
-        columns,
-        index=0
-    )
-
-    target_col = st.selectbox(
-        "Target column (Match TO)",
-        columns,
-        index=1 if len(columns) > 1 else 0
-    )
-
-    # Prevent same column selection
-    if source_col == target_col:
-        st.warning("⚠️ Source and Target columns cannot be the same.")
-        st.stop()
-
-
-    # Customizable threshold
     threshold = st.slider("Match Threshold", 0, 100, 80)
 
-    if st.button("🚀 Run Matching"):
-        with st.spinner("Processing matches..."):
-            source_names = df[source_col].dropna().tolist()
-            target_names = df[target_col].dropna().tolist()
+    if st.button("Run Matching"):
 
-            target_clean = [
-                strip_stopwords(clean_text(x))
-                for x in target_names
-            ]
+        source_names = df[source_col].dropna().tolist()
+        target_names = df[target_col].dropna().tolist()
 
-            rows = []
-            for name in source_names:
-                m, s, n = find_best_match(name, target_clean, target_names, threshold=threshold)
-                rows.append({
-                    source_col: name,
-                    "Matched Name": m,
-                    "Score": s,
-                    "Match Type": n
-                })
+        target_clean = [
+            strip_stopwords(clean_text(x))
+            for x in target_names
+        ]
 
-            out_df = pd.DataFrame(rows)
-            st.success("✅ Matching completed")
-            st.dataframe(out_df.head(20))
+        rows = []
 
-            st.markdown("## 📊 Match Summary Dashboard")
-
-            total_records = len(out_df)
-            total_matches = (out_df["Match Type"] == "High Confidence").sum()
-            total_no_matches = (out_df["Match Type"] == "No Match").sum()
-            match_rate = round((total_matches / total_records) * 100, 2) if total_records else 0
-
-            st.warning("⚠️ **Important Note:** Matches are subject to manual scrutiny as the algorithm may occasionally produce false positives. Please review results carefully.")
-
-            k1, k2, k3, k4 = st.columns(4)
-            k1.metric("📄 Total Records", total_records)
-            k2.metric("✅ Matches", total_matches)
-            k3.metric("❌ No Matches", total_no_matches)
-            k4.metric("📈 Match Rate", f"{match_rate}%")
-
-            csv = out_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "⬇️ Download Result CSV",
-                csv,
-                file_name="matched_results.csv",
-                mime="text/csv"
+        for name in source_names:
+            match, score, mtype = find_best_match(
+                name,
+                target_clean,
+                target_names,
+                threshold
             )
+
+            rows.append({
+                source_col: name,
+                "Matched Name": match,
+                "Score": score,
+                "Match Type": mtype
+            })
+
+        out_df = pd.DataFrame(rows)
+
+        st.success("Matching Completed")
+        st.dataframe(out_df)
+
+        csv = out_df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            "Download Results",
+            csv,
+            "matched_results.csv",
+            "text/csv"
+        )

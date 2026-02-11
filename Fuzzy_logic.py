@@ -458,6 +458,21 @@ if uploaded_file:
         st.success("Matching Completed")
         st.dataframe(out_df)
 
+        st.markdown("## 📊 Match Summary Dashboard")
+
+        total_records = len(out_df)
+        total_matches = (out_df["Match Type"] == "High Confidence").sum()
+        total_no_matches = (out_df["Match Type"] == "No Match").sum()
+        match_rate = round((total_matches / total_records) * 100, 2) if total_records else 0
+
+        st.warning("⚠️ **Important Note:** Matches are subject to manual scrutiny as the algorithm may occasionally produce false positives. Please review results carefully.")
+
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("📄 Total Records", total_records)
+        k2.metric("✅ Matches", total_matches)
+        k3.metric("❌ No Matches", total_no_matches)
+        k4.metric("📈 Match Rate", f"{match_rate}%")
+
         csv = out_df.to_csv(index=False).encode("utf-8")
 
         st.download_button(

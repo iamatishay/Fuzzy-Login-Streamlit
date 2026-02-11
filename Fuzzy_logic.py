@@ -311,55 +311,52 @@ def final_match_score(a, b, **kwargs):
     a_tokens = a.split()
     b_tokens = b.split()
 
-    a_set = set(a_tokens)
-    b_set = set(b_tokens)
-
-    # HARD RULES
-    if has_conflicting_region(a, b):
+    if not a_tokens or not b_tokens:
         return 0
 
-    if insurance_conflict(a, b):
-        return 0
-
-    # -------- STRICT FIRST WORD CONTROL --------
     a_first = a_tokens[0]
     b_first = b_tokens[0]
 
-    first_word_score = fuzz.ratio(a_first, b_first)
-
-    strong_overlap = len(a_set & b_set) >= 2
-
-    # Require strong first word OR strong token overlap
-    if not (first_word_score >= 90 or strong_overlap):
-        return 0
-
-    # -------- TOKEN COVERAGE RULE --------
-    matched_count = sum(
-        1 for t1 in a_tokens
-        if any(fuzz.ratio(t1, t2) > 85 for t2 in b_tokens)
+    # ---------------------------------------------------
+    # CHARACTER-LEVEL MATCH CHECK (STRICT 80% RULE)
+    # ---------------------------------------------------
+    shorter_len = min(len(a_first), len(b_first))
+    matching_chars = sum(
+        1 for c1, c2 in zip(a_first, b_first)
+        if c1 == c2
     )
 
-    if matched_count / len(a_tokens) < 0.6:
-        return 0
+    char_match_percent = (matching_chars / shorter_len) * 100 if shorter_len > 0 else 0
 
-    # -------- SCORE CALCULATION --------
-    token_score = token_based_score(a, b)
+    # If less than 80% character match → first word weight = 0
+    if char_match_percent >= 80:
+        first_word_weight = 1
+        first_word_score = fuzz.ratio(a_first, b_first)
+    else:
+        first_word_weight = 0
+        first_word_score = 0
 
-    fuzzy_score = (
-        0.5 * fuzz.token_set_ratio(a, b) +
-        0.3 * fuzz.partial_ratio(a, b) +
-        0.2 * fuzz.token_sort_ratio(a, b)
+    # ---------------------------------------------------
+    # REMAINING WORDS SCORE
+    # ---------------------------------------------------
+    remaining_a = " ".join(a_tokens[1:])
+    remaining_b = " ".join(b_tokens[1:])
+
+    remaining_score = 0
+    if remaining_a and remaining_b:
+        remaining_score = fuzz.token_set_ratio(remaining_a, remaining_b)
+
+    # ---------------------------------------------------
+    # FINAL SCORE CALCULATION
+    # ---------------------------------------------------
+    # First word weight = 70% (only if 80% characters match)
+    # Remaining words = 30%
+    final_score = (
+        (0.7 * first_word_score * first_word_weight) +
+        (0.3 * remaining_score)
     )
 
-    final_score = 0.75 * token_score + 0.25 * fuzzy_score
-
-    # -------- STRICT ACRONYM BONUS --------
-    # Only allow acronym bonus if acronym length >= 4
-    if is_acronym_match(a, b) and len(get_acronym(a)) >= 4:
-        final_score += 15
-
-    return min(100, final_score)
-
+    return round(min(100, final_score), 2)
 
 # ============================================================
 # MATCHING FUNCTION

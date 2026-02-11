@@ -378,7 +378,7 @@ def final_match_score(a, b, **kwargs):
 # MATCHING FUNCTION
 # ============================================================
 
-def find_best_match(main_name, cleaned_choices, original_choices, threshold=80):
+def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
 
     if not main_name:
         return None, 0, "No Match"

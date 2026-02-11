@@ -33,6 +33,66 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+    <style>
+    
+    /* ===== App Background ===== */
+    .stApp {
+        background: linear-gradient(135deg, #eef2f7 0%, #d9e4f5 100%);
+        background-attachment: fixed;
+    }
+
+    /* ===== Main Content Container ===== */
+    .block-container {
+        background-color: white;
+        padding: 2rem 3rem 3rem 3rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    /* ===== Title Styling ===== */
+    .main-title {
+        font-size: 36px;
+        font-weight: 700;
+        color: #1f4e79;
+        margin-bottom: 5px;
+    }
+
+    .sub-text {
+        font-size: 16px;
+        color: #555555;
+        margin-bottom: 20px;
+    }
+
+    /* ===== Instruction Box ===== */
+    .info-box {
+        background-color: #f0f6ff;
+        padding: 18px;
+        border-radius: 12px;
+        border-left: 6px solid #1f4e79;
+        margin-bottom: 25px;
+        font-size: 15px;
+    }
+
+    /* ===== Buttons Styling ===== */
+    .stButton>button {
+        background-color: #1f4e79;
+        color: white;
+        border-radius: 8px;
+        height: 3em;
+        font-weight: 600;
+        border: none;
+    }
+
+    .stButton>button:hover {
+        background-color: #163a5c;
+        color: white;
+    }
+
+    </style>
+""", unsafe_allow_html=True)
+
+
 # ===== Header Section =====
 st.markdown('<div class="main-title">🔍 Fuzzy Logic Name Matching Tool</div>', unsafe_allow_html=True)
 st.markdown(

@@ -6,6 +6,56 @@ import re
 st.set_page_config(page_title="Fuzzy Logic", layout="wide")
 st.title("🔍 Fuzzy Logic")
 
+st.set_page_config(
+    page_title="Fuzzy Logic Name Matching Tool",
+    layout="wide",
+    page_icon="🔍"
+)
+
+# ===== Custom Styling =====
+st.markdown("""
+    <style>
+    .main-title {
+        font-size: 36px;
+        font-weight: 700;
+        color: #1f4e79;
+        margin-bottom: 5px;
+    }
+    .sub-text {
+        font-size: 16px;
+        color: #555555;
+        margin-bottom: 20px;
+    }
+    .info-box {
+        background-color: #f0f6ff;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #d0e2ff;
+        margin-bottom: 20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ===== Header Section =====
+st.markdown('<div class="main-title">🔍 Fuzzy Logic Name Matching Tool</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="sub-text">Match company names intelligently using advanced fuzzy logic, token scoring, and rule-based validation.</div>',
+    unsafe_allow_html=True
+)
+
+# ===== Instruction Box =====
+st.markdown("""
+<div class="info-box">
+<b>📌 How to Use:</b><br>
+1️⃣ Download the sample file below to understand the required format (2 columns).<br>
+2️⃣ Upload your file (CSV or Excel).<br>
+3️⃣ Select Source (Match FROM) and Target (Match TO) columns.<br>
+4️⃣ Click <b>Run Matching</b> to generate results.<br><br>
+⚠️ Ensure your file contains at least two columns for matching.
+</div>
+""", unsafe_allow_html=True)
+
+
 # ============================================================
 # SAMPLE FILE DOWNLOAD
 # ============================================================
@@ -274,8 +324,25 @@ if uploaded_file:
     st.subheader("Preview")
     st.dataframe(df.head())
 
-    source_col = st.selectbox("Source column (to match FROM)", df.columns)
-    target_col = st.selectbox("Target column (to match TO)", df.columns)
+    columns = list(df.columns)
+
+    source_col = st.selectbox(
+        "Source column (Match FROM)",
+        columns,
+        index=0
+    )
+
+    target_col = st.selectbox(
+        "Target column (Match TO)",
+        columns,
+        index=1 if len(columns) > 1 else 0
+    )
+
+    # Prevent same column selection
+    if source_col == target_col:
+        st.warning("⚠️ Source and Target columns cannot be the same.")
+        st.stop()
+
 
     # Customizable threshold
     threshold = st.slider("Match Threshold", 0, 100, 80)

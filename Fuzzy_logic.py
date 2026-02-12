@@ -485,12 +485,17 @@ if uploaded_file:
         # SIMULATED EXCEL VLOOKUP / XLOOKUP (EXACT MATCH)
         # ============================================================
 
-        target_clean_set = set(target_clean)
+        # ============================================================
+# TRUE EXCEL VLOOKUP / XLOOKUP SIMULATION (EXACT MATCH)
+# ============================================================
+
+# Excel is case-insensitive but otherwise exact
+        target_raw_set = set(str(x).strip().upper() for x in target_names)
 
         excel_matches = []
 
-        for sclean in source_clean:
-            if sclean and sclean in target_clean_set:
+        for name in source_names:
+            if str(name).strip().upper() in target_raw_set:
                 excel_matches.append("Exact Match")
             else:
                 excel_matches.append("No Match")
@@ -522,6 +527,7 @@ if uploaded_file:
         k4.metric("📈 Fuzzy Match Rate", f"{fuzzy_match_rate}%")
 
         st.info(f"📊 Excel Exact Match Rate (VLOOKUP/XLOOKUP) would be: {excel_match_rate}%")
+        st.info(f"Excel Match is being calculated based on exact cleaned name (removing special characters and spaces) matches, simulating VLOOKUP/XLOOKUP behavior.")
 
 
         csv = out_df.to_csv(index=False).encode("utf-8")

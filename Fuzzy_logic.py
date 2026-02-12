@@ -145,7 +145,7 @@ st.download_button(
 # ============================================================
 # RULE SETS (EXPANDED FOR PRODUCTION)
 # ============================================================
-STOPWORDS = {"THE", "LTD", "PVT", "CO", "AND", "LLP", "INC", "CORP", "COMPANY", "SERVICES", "GROUP", "INDIA"}
+STOPWORDS = {"THE", "LTD", "PVT", "CO", "AND", "LLP", "INC", "CORP", "CORPORATION", "COMPANY", "SERVICES", "GROUP"}
 ESSENTIALS = {"ENERGY", "ELECTRIC", "BANK", "INSURANCE", "LIFE", "GENERAL"}
 REGIONAL_WORDS = {"NORTH", "SOUTH", "EAST", "WEST", "UTTAR", "DAKSHIN", "CENTRAL", "NORTHERN", "SOUTHERN", "EASTERN", "WESTERN"}
 INSURANCE_LIFE = {"LIFE"}
@@ -195,9 +195,6 @@ def is_acronym_match(a, b):
         return True
     return False
 
-# ============================================================
-# 3. Cleaning Functions
-# ============================================================
 # ============================================================
 # CLEANING FUNCTIONS
 # ============================================================
@@ -299,32 +296,33 @@ def token_based_score(a, b):
 
     return (weighted_sum / max_possible) * 100
 
+# ============================================================
+# UPDATED: expand_name_variants (Fix 1: Avoid over-expansion of short/common bracketed words)
+# ============================================================
 def expand_name_variants(name):
-    
     variants = [name]
-
-        # Extract bracket content
-    bracket_match = re.search(r"\((.*?)\)", name)
+    
+    # Extract bracket content only if it's potentially meaningful (e.g., not a single short word like "India")
+    bracket_match = re.search(r"\$(.*?)\$", name)
     if bracket_match:
-        inside = bracket_match.group(1)
-        outside = re.sub(r"\(.*?\)", "", name).strip()
-
-        variants.append(inside)
-        variants.append(outside)
-
+        inside = bracket_match.group(1).strip()
+        # Skip if it's a single word <= 3 chars or a common region (to avoid false positives)
+        if len(inside.split()) > 1 or len(inside) > 3:  # Adjust thresholds as needed
+            outside = re.sub(r"\$.*?\$", "", name).strip()
+            variants.append(inside)
+            variants.append(outside)
+    
     return list(set(variants))
 
-
 # ============================================================
-# FINAL MATCH ENGINE
+# UPDATED: final_match_score (Fix 2: Strengthen substring rule with length checks)
 # ============================================================
 
 def final_match_score(a, b, **kwargs):
 
-    # Strong substring rule (exact containment)
-    if a in b or b in a:
+    # Strong substring rule (exact containment) - but only for meaningful substrings
+    if len(a) > 5 and len(b) > 5 and (a in b or b in a):
         return 95
-
 
     if not a or not b:
         return 0
@@ -375,7 +373,7 @@ def final_match_score(a, b, **kwargs):
     return round(min(100, final_score), 2)
 
 # ============================================================
-# MATCHING FUNCTION
+# UPDATED: find_best_match (Fix 3: Add post-match validation for shared tokens/full similarity)
 # ============================================================
 
 def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
@@ -386,7 +384,6 @@ def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
     parts = []
     for p in str(main_name).split("/"):
         parts.extend(expand_name_variants(p.strip()))
-
 
     best_match = None
     best_score = 0
@@ -409,6 +406,17 @@ def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
             if score > best_score:
                 best_score = score
                 best_match = original_choices[idx]
+
+    # UPDATED: Post-match validation to reject false positives
+    if best_match and best_score >= threshold:
+        # Additional validation: Ensure at least one shared meaningful token or high full-string similarity
+        main_full_clean = strip_stopwords(clean_text(main_name))
+        match_full_clean = strip_stopwords(clean_text(best_match))
+        if main_full_clean and match_full_clean:
+            shared_tokens = set(main_full_clean.split()) & set(match_full_clean.split())
+            full_ratio = fuzz.token_set_ratio(main_full_clean, match_full_clean)
+            if not shared_tokens and full_ratio < 70:  # No shared tokens AND low overall similarity
+                return None, 0.0, "No Match"  # Reject as false positive
 
     if best_score >= threshold:
         return best_match, round(best_score, 2), "High Confidence"

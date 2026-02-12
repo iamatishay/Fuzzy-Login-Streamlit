@@ -515,10 +515,14 @@ if uploaded_file:
         st.warning("⚠️ **Important Note:** Matches are subject to manual scrutiny as the algorithm may occasionally produce false positives. Please review results carefully.")
 
         k1, k2, k3, k4 = st.columns(4)
+
         k1.metric("📄 Total Records", total_records)
-        k2.metric("✅ Matches", total_matches)
-        k3.metric("❌ No Matches", total_no_matches)
-        k4.metric("📈 Match Rate", f"{match_rate}%")
+        k2.metric("🤖 Fuzzy Matches", total_fuzzy_matches)
+        k3.metric("📊 Excel Exact Matches", total_excel_matches)
+        k4.metric("📈 Fuzzy Match Rate", f"{fuzzy_match_rate}%")
+
+        st.info(f"📊 Excel Exact Match Rate (VLOOKUP/XLOOKUP) would be: {excel_match_rate}%")
+
 
         csv = out_df.to_csv(index=False).encode("utf-8")
 

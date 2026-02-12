@@ -4,7 +4,7 @@ from rapidfuzz import fuzz, process
 import re
 
 st.set_page_config(
-    page_title="Fuzzy Logic Name Matching Tool",
+    page_title="Fuzzy Logic Tool",
     layout="wide",
     page_icon="🔍"
 )
@@ -94,7 +94,7 @@ st.markdown("""
 
 
 # ===== Header Section =====
-st.markdown('<div class="main-title">🔍 Fuzzy Logic Name Matching Tool</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🔍 Fuzzy Logic Tool</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="sub-text">Match company names intelligently using advanced fuzzy logic, token scoring, and rule-based validation.</div>',
     unsafe_allow_html=True
@@ -419,7 +419,6 @@ def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
 # STREAMLIT UI
 # ============================================================
 
-st.title("🔍 Fuzzy Logic Name Matching Tool")
 
 uploaded_file = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
@@ -437,12 +436,29 @@ if uploaded_file:
 
     st.dataframe(df.head())
 
-    source_col = st.selectbox("Source Column", df.columns, index=0)
-    target_col = st.selectbox("Target Column", df.columns, index=1)
+        # ===== Sidebar Controls =====
+    st.sidebar.header("⚙ Match Configuration")
 
-    threshold = st.slider("Match Threshold", 0, 100, 80)
+    source_col = st.sidebar.selectbox(
+        "Select Source Column",
+        df.columns,
+        index=0
+    )
 
-    if st.button("Run Matching"):
+    target_col = st.sidebar.selectbox(
+        "Select Target Column",
+        df.columns,
+        index=1
+    )
+
+    threshold = st.sidebar.slider(
+        "Match Threshold (%)",
+        min_value=0,
+        max_value=100,
+        value=80
+    )
+
+    if st.button("🚀 Run Matching"):
 
         source_names = df[source_col].dropna().tolist()
         target_names = df[target_col].dropna().tolist()

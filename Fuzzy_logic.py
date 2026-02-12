@@ -452,9 +452,19 @@ if uploaded_file:
             for x in target_names
         ]
 
+        source_clean = [
+            strip_stopwords(clean_text(x))
+            for x in source_names
+        ]
+
+        # ============================================================
+        # FUZZY MATCHING
+        # ============================================================
+
         rows = []
 
-        for name in source_names:
+        for i, name in enumerate(source_names):
+
             match, score, mtype = find_best_match(
                 name,
                 target_clean,
@@ -471,15 +481,36 @@ if uploaded_file:
 
         out_df = pd.DataFrame(rows)
 
+        # ============================================================
+        # SIMULATED EXCEL VLOOKUP / XLOOKUP (EXACT MATCH)
+        # ============================================================
+
+        target_clean_set = set(target_clean)
+
+        excel_matches = []
+
+        for sclean in source_clean:
+            if sclean and sclean in target_clean_set:
+                excel_matches.append("Exact Match")
+            else:
+                excel_matches.append("No Match")
+
+        out_df["Excel Match Type"] = excel_matches
+
+
         st.success("Matching Completed")
         st.dataframe(out_df)
 
         st.markdown("## 📊 Match Summary Dashboard")
 
         total_records = len(out_df)
-        total_matches = (out_df["Match Type"] == "High Confidence").sum()
+        total_fuzzy_matches = (out_df["Match Type"] == "High Confidence").sum()
+        total_excel_matches = (out_df["Excel Match Type"] == "Exact Match").sum()
+
         total_no_matches = (out_df["Match Type"] == "No Match").sum()
-        match_rate = round((total_matches / total_records) * 100, 2) if total_records else 0
+        fuzzy_match_rate = round((total_fuzzy_matches / total_records) * 100, 2) if total_records else 0
+        excel_match_rate = round((total_excel_matches / total_records) * 100, 2) if total_records else 0
+
 
         st.warning("⚠️ **Important Note:** Matches are subject to manual scrutiny as the algorithm may occasionally produce false positives. Please review results carefully.")
 

@@ -506,25 +506,20 @@ if uploaded_file:
         out_df = pd.DataFrame(rows)
 
         # ============================================================
-        # SIMULATED EXCEL VLOOKUP / XLOOKUP (EXACT MATCH)
+        # TRUE EXCEL VLOOKUP SIMULATION USING ORIGINAL DATAFRAME
         # ============================================================
 
-        # ============================================================
-# TRUE EXCEL VLOOKUP / XLOOKUP SIMULATION (EXACT MATCH)
-# ============================================================
+        # Build lookup set directly from original DF column
+        target_lookup_set = set(
+            df[target_col].astype(str)
+        )
 
-# Excel is case-insensitive but otherwise exact
-        target_raw_set = set(str(x).strip().upper() for x in target_names)
-
-        excel_matches = []
-
-        for name in source_names:
-            if str(name).strip().upper() in target_raw_set:
-                excel_matches.append("Exact Match")
-            else:
-                excel_matches.append("No Match")
-
-        out_df["Excel Match Type"] = excel_matches
+        # Now compare each SOURCE cell directly from out_df
+        out_df["Excel Match Type"] = out_df[source_col].apply(
+            lambda x: "Exact Match"
+            if str(x) in target_lookup_set
+            else "No Match"
+        )
 
 
         st.success("Matching Completed")
@@ -551,7 +546,7 @@ if uploaded_file:
         k4.metric("📈 Fuzzy Match Rate", f"{fuzzy_match_rate}%")
 
         st.info(f"📊 Excel Exact Match Rate (VLOOKUP/XLOOKUP) would be: {excel_match_rate}%")
-        st.info(f"Excel Match is being calculated based on exact cleaned name (removing special characters and spaces) matches, simulating VLOOKUP/XLOOKUP behavior.")
+        st.info(f"Excel Match is being calculated based on exact name matches, simulating VLOOKUP/XLOOKUP behavior.")
 
 
         csv = out_df.to_csv(index=False).encode("utf-8")

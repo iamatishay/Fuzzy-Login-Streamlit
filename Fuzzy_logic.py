@@ -9,196 +9,48 @@ st.set_page_config(
     page_icon="🔍"
 )
 
-# ===== Custom Styling =====
+# ============================================================
+# 🔥 NEW: CAMEL CASE SPLITTER
+# ============================================================
+def split_camel_case(text):
+    if not text:
+        return text
+    return re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+
+# ============================================================
+# UI STYLING
+# ============================================================
 st.markdown("""
-    <style>
-    .main-title {
-        font-size: 36px;
-        font-weight: 700;
-        color: #1f4e79;
-        margin-bottom: 5px;
-    }
-    .sub-text {
-        font-size: 16px;
-        color: #555555;
-        margin-bottom: 20px;
-    }
-    .info-box {
-        background-color: #f0f6ff;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #d0e2ff;
-        margin-bottom: 20px;
-    }
-    </style>
+<style>
+.stApp {
+    background: linear-gradient(135deg, #eef2f7 0%, #d9e4f5 100%);
+}
+.block-container {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 15px;
+}
+</style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-    <style>
-    
-    /* ===== App Background ===== */
-    .stApp {
-        background: linear-gradient(135deg, #eef2f7 0%, #d9e4f5 100%);
-        background-attachment: fixed;
-    }
-
-    /* ===== Main Content Container ===== */
-    .block-container {
-        background-color: white;
-        padding: 2rem 3rem 3rem 3rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    }
-
-    /* ===== Title Styling ===== */
-    .main-title {
-        font-size: 36px;
-        font-weight: 700;
-        color: #1f4e79;
-        margin-bottom: 5px;
-    }
-
-    .sub-text {
-        font-size: 16px;
-        color: #555555;
-        margin-bottom: 20px;
-    }
-
-    /* ===== Instruction Box ===== */
-    .info-box {
-        background-color: #f0f6ff;
-        padding: 18px;
-        border-radius: 12px;
-        border-left: 6px solid #1f4e79;
-        margin-bottom: 25px;
-        font-size: 15px;
-    }
-
-    /* ===== Buttons Styling ===== */
-    .stButton>button {
-        background-color: #1f4e79;
-        color: white;
-        border-radius: 8px;
-        height: 3em;
-        font-weight: 600;
-        border: none;
-    }
-
-    .stButton>button:hover {
-        background-color: #163a5c;
-        color: white;
-    }
-
-    </style>
-""", unsafe_allow_html=True)
-
-
-# ===== Header Section =====
-st.markdown('<div class="main-title">🔍 Fuzzy Logic Tool</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="sub-text">Match company names intelligently using advanced fuzzy logic, token scoring, and rule-based validation.</div>',
-    unsafe_allow_html=True
-)
-
-# ===== Instruction Box =====
-st.markdown("""
-<div class="info-box">
-<b>📌 How to Use:</b><br>
-1️⃣ Download the sample file below to understand the required format (2 columns).<br>
-2️⃣ Upload your file (CSV or Excel).<br>
-3️⃣ Select Source (Match FROM) and Target (Match TO) columns.<br>
-4️⃣ Click <b>Run Matching</b> to generate results.<br><br>
-⚠️ Ensure your file contains at least two columns for matching.
-</div>
-""", unsafe_allow_html=True)
-
+st.title("🔍 Fuzzy Logic Tool")
 
 # ============================================================
-# SAMPLE FILE DOWNLOAD
+# RULE SETS
 # ============================================================
-sample_df = pd.DataFrame({
-    "Source_Name": [
-        "TANLA PLATFORMS LTD",
-        "HDFC BANK",
-        "SBI LIFE INSURANCE",
-        "VODAFONE IDEA",
-        "TITAN SERVICES"
-    ],
-    "Target_Name": [
-        "TANLA PLATFORMS LIMITED",
-        "HDFC BANK LIMITED",
-        "STATE BANK OF INDIA LIFE INSURANCE",
-        "VODAFONE IDEA LIMITED",
-        "TITAN COMPANY LIMITED"
-    ]
-})
-
-sample_csv = sample_df.to_csv(index=False).encode("utf-8")
-
-st.download_button(
-    label="📥 Download Sample CSV (2 Columns)",
-    data=sample_csv,
-    file_name="sample_2_column_name_matching.csv",
-    mime="text/csv"
-)
-
-# ============================================================
-# RULE SETS (EXPANDED FOR PRODUCTION)
-# ============================================================
-STOPWORDS = {"THE", "LTD", "PVT", "CO", "AND", "LLP", "INC", "CORP", "CORPORATION", "COMPANY", "SERVICES", "GROUP"}
-ESSENTIALS = {"ENERGY", "ELECTRIC", "BANK", "INSURANCE", "LIFE", "GENERAL"}
-REGIONAL_WORDS = {"NORTH", "SOUTH", "EAST", "WEST", "UTTAR", "DAKSHIN", "CENTRAL", "NORTHERN", "SOUTHERN", "EASTERN", "WESTERN"}
-INSURANCE_LIFE = {"LIFE"}
-INSURANCE_GENERAL = {"GENERAL", "GI", "INSURANCE", "NON-LIFE"}
-SERVICE_WORDS = {"SERVICES", "GROUP", "SOLUTIONS", "SYSTEMS"}
-MESSAGE_WORDS = {"MESSAGE", "MESSAGING", "SMS", "COMMUNICATION"}
-TELECOM_WORDS = {"TELECOM", "VODAFONE", "IDEA", "AIRTEL", "JIO", "BHARTI"}
+STOPWORDS = {"THE", "LTD", "PVT", "CO", "AND", "LLP", "INC", "CORP", "COMPANY"}
+ESSENTIALS = {"BANK", "INSURANCE", "LIFE"}
 
 REPLACEMENTS = {
-    "PVT.": "PVT",
-    "PRIVATE": "PVT",
     "LIMITED": "LTD",
-    "LTD.": "LTD",
-    "&": "AND",
-    "CO.": "CO",
-    "TECHNOLOGY": "TECH",
-    "TECHNOLOGIES": "TECH",
-    "CORPORATION": "CORP",
+    "PRIVATE": "PVT",
     "COMPANY": "CO",
-    "SERVICES": "SVC",
-    "GROUP": "GRP",
-    "BANK": "BK",
-    "INSURANCE": "INS",
-    "LIFE": "LF",
-    "GENERAL": "GEN",
+    "CORPORATION": "CORP",
 }
 
 # ============================================================
-# UTILITY FUNCTIONS
+# CLEANING
 # ============================================================
-def get_acronym(s):
-    """Generate acronym from words, ignoring stopwords."""
-    words = [w for w in s.split() if w not in STOPWORDS]
-    return "".join(w[0] for w in words if w)
-
-def is_acronym_match(a, b):
-    """Check if one is an acronym of the other, with fuzzy and substring checks."""
-    a_acr = get_acronym(a)
-    b_acr = get_acronym(b)
-    if a_acr == b_acr:
-        return True
-    if len(a_acr) < len(b_acr) and a_acr in b_acr:
-        return True
-    if len(b_acr) < len(a_acr) and b_acr in a_acr:
-        return True
-    if fuzz.ratio(a_acr, b_acr) > 80:
-        return True
-    return False
-
-# ============================================================
-# CLEANING FUNCTIONS
-# ============================================================
-
 def normalize_variants(s):
     for k, v in REPLACEMENTS.items():
         s = re.sub(rf"\b{k}\b", v, s)
@@ -207,125 +59,45 @@ def normalize_variants(s):
 def clean_text(s):
     if pd.isna(s):
         return None
-    s = str(s).upper().strip()
+
+    s = str(s).strip()
+
+    # 🔥 FIX 1: Split CamelCase BEFORE uppercase
+    s = split_camel_case(s)
+
+    s = s.upper()
     s = normalize_variants(s)
+
+    # 🔥 FIX 2: Remove special chars
     s = re.sub(r"[^A-Z0-9 ]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
+
     return s if s else None
 
 def strip_stopwords(s):
     if not s:
         return None
     tokens = s.split()
-    tokens = [
-        t for t in tokens
-        if (t not in STOPWORDS) or (t in ESSENTIALS)
-    ]
-    return " ".join(tokens) if tokens else None
+    tokens = [t for t in tokens if t not in STOPWORDS or t in ESSENTIALS]
+    return " ".join(tokens)
 
 # ============================================================
-# HARD VALIDATION RULES
+# 🔥 IMPROVED MATCH SCORING
 # ============================================================
-
-def has_conflicting_region(a, b):
-    a_tokens = set(a.split())
-    b_tokens = set(b.split())
-    for w in REGIONAL_WORDS:
-        if (w in a_tokens) != (w in b_tokens):
-            return True
-    return False
-
-def insurance_conflict(a, b):
-    a_tokens = set(a.split())
-    b_tokens = set(b.split())
-    if (INSURANCE_LIFE & a_tokens and INSURANCE_GENERAL & b_tokens) or \
-       (INSURANCE_LIFE & b_tokens and INSURANCE_GENERAL & a_tokens):
-        return True
-    return False
-
-# ============================================================
-# ACRONYM LOGIC
-# ============================================================
-
-def get_acronym(s):
-    words = [w for w in s.split() if w not in STOPWORDS]
-    return "".join(w[0] for w in words if w)
-
-def is_acronym_match(a, b):
-    a_acr = get_acronym(a)
-    b_acr = get_acronym(b)
-
-    if a_acr == b_acr:
-        return True
-
-    if len(a_acr) < len(b_acr) and a_acr in b_acr:
-        return True
-
-    if len(b_acr) < len(a_acr) and b_acr in a_acr:
-        return True
-
-    if fuzz.ratio(a_acr, b_acr) > 85:
-        return True
-
-    return False
-
-# ============================================================
-# TOKEN SCORING ENGINE (LEGAL WORDS HAVE ZERO WEIGHT)
-# ============================================================
-
-def token_based_score(a, b):
-    a_tokens = a.split()
-    b_tokens = b.split()
-
-    if not a_tokens or not b_tokens:
-        return 0
-
-    token_matches = []
-
-    for t1 in a_tokens:
-        best = 0
-        for t2 in b_tokens:
-            best = max(best, fuzz.ratio(t1, t2))
-        token_matches.append(best)
-
-    # First meaningful word gets weight 1.5
-    weights = [1.5] + [1.0] * (len(token_matches) - 1)
-
-    weighted_sum = sum(t * w for t, w in zip(token_matches, weights))
-    max_possible = sum(weights) * 100
-
-    return (weighted_sum / max_possible) * 100
-
-# ============================================================
-# UPDATED: expand_name_variants (Fix 1: Avoid over-expansion of short/common bracketed words)
-# ============================================================
-def expand_name_variants(name):
-    variants = [name]
-    
-    # Extract bracket content only if it's potentially meaningful (e.g., not a single short word like "India")
-    bracket_match = re.search(r"\$(.*?)\$", name)
-    if bracket_match:
-        inside = bracket_match.group(1).strip()
-        # Skip if it's a single word <= 3 chars or a common region (to avoid false positives)
-        if len(inside.split()) > 1 or len(inside) > 3:  # Adjust thresholds as needed
-            outside = re.sub(r"\$.*?\$", "", name).strip()
-            variants.append(inside)
-            variants.append(outside)
-    
-    return list(set(variants))
-
-# ============================================================
-# UPDATED: final_match_score (Fix 2: Strengthen substring rule with length checks)
-# ============================================================
-
 def final_match_score(a, b, **kwargs):
-
-    # Strong substring rule (exact containment) - but only for meaningful substrings
-    if len(a) > 5 and len(b) > 5 and (a in b or b in a):
-        return 95
 
     if not a or not b:
         return 0
+
+    # ========================================================
+    # 🔥 FIX 3: SPACE-INSENSITIVE MATCH (FirstCry vs First Cry)
+    # ========================================================
+    if fuzz.ratio(a.replace(" ", ""), b.replace(" ", "")) > 92:
+        return 96
+
+    # Strong substring rule
+    if len(a) > 5 and len(b) > 5 and (a in b or b in a):
+        return 95
 
     a_tokens = a.split()
     b_tokens = b.split()
@@ -336,9 +108,9 @@ def final_match_score(a, b, **kwargs):
     a_first = a_tokens[0]
     b_first = b_tokens[0]
 
-    # ---------------------------------------------------
-    # 80% CHARACTER MATCH RULE (ORDER INDEPENDENT)
-    # ---------------------------------------------------
+    # ========================================================
+    # FIRST WORD VALIDATION
+    # ========================================================
     shorter = min(len(a_first), len(b_first))
 
     common_chars = sum(
@@ -346,16 +118,13 @@ def final_match_score(a, b, **kwargs):
         for c in set(a_first)
     )
 
-    char_match_percent = (common_chars / shorter) * 100 if shorter > 0 else 0
+    char_match_percent = (common_chars / shorter) * 100 if shorter else 0
 
-    # If first word < 80% → reject completely
     if char_match_percent < 80:
         return 0
 
-    # Strong first word score
-    first_word_score = fuzz.ratio(a_first, b_first)
+    first_score = fuzz.ratio(a_first, b_first)
 
-    # Remaining tokens similarity
     remaining_a = " ".join(a_tokens[1:])
     remaining_b = " ".join(b_tokens[1:])
 
@@ -363,71 +132,36 @@ def final_match_score(a, b, **kwargs):
     if remaining_a and remaining_b:
         remaining_score = fuzz.token_set_ratio(remaining_a, remaining_b)
 
-    # ---------------------------------------------------
-    # FINAL WEIGHTING
-    # 80% first word
-    # 20% remaining words
-    # ---------------------------------------------------
-    final_score = (0.8 * first_word_score) + (0.2 * remaining_score)
+    final_score = (0.8 * first_score) + (0.2 * remaining_score)
 
-    return round(min(100, final_score), 2)
+    return round(final_score, 2)
 
 # ============================================================
-# UPDATED: find_best_match (Fix 3: Add post-match validation for shared tokens/full similarity)
+# MATCH FUNCTION
 # ============================================================
+def find_best_match(name, cleaned_choices, original_choices, threshold=85):
 
-def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
+    main_clean = strip_stopwords(clean_text(name))
 
-    if not main_name:
-        return None, 0, "No Match"
+    if not main_clean:
+        return None, 0
 
-    parts = []
-    for p in str(main_name).split("/"):
-        parts.extend(expand_name_variants(p.strip()))
+    result = process.extractOne(
+        main_clean,
+        cleaned_choices,
+        scorer=final_match_score
+    )
 
-    best_match = None
-    best_score = 0
+    if result:
+        _, score, idx = result
+        if score >= threshold:
+            return original_choices[idx], score
 
-    for part in parts:
-
-        main_clean = strip_stopwords(clean_text(part))
-        if not main_clean:
-            continue
-
-        result = process.extractOne(
-            main_clean,
-            cleaned_choices,
-            scorer=final_match_score,
-            score_cutoff=threshold
-        )
-
-        if result:
-            _, score, idx = result
-            if score > best_score:
-                best_score = score
-                best_match = original_choices[idx]
-
-    # UPDATED: Post-match validation to reject false positives
-    if best_match and best_score >= threshold:
-        # Additional validation: Ensure at least one shared meaningful token or high full-string similarity
-        main_full_clean = strip_stopwords(clean_text(main_name))
-        match_full_clean = strip_stopwords(clean_text(best_match))
-        if main_full_clean and match_full_clean:
-            shared_tokens = set(main_full_clean.split()) & set(match_full_clean.split())
-            full_ratio = fuzz.token_set_ratio(main_full_clean, match_full_clean)
-            if not shared_tokens and full_ratio < 70:  # No shared tokens AND low overall similarity
-                return None, 0.0, "No Match"  # Reject as false positive
-
-    if best_score >= threshold:
-        return best_match, round(best_score, 2), "High Confidence"
-
-    return None, 0.0, "No Match"
+    return None, 0
 
 # ============================================================
-# STREAMLIT UI
+# FILE UPLOAD
 # ============================================================
-
-
 uploaded_file = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
 if uploaded_file:
@@ -435,119 +169,39 @@ if uploaded_file:
     if uploaded_file.name.endswith(".xlsx"):
         df = pd.read_excel(uploaded_file)
     else:
-        uploaded_file.seek(0)
-        try:
-            df = pd.read_csv(uploaded_file, encoding="utf-8")
-        except:
-            uploaded_file.seek(0)
-            df = pd.read_csv(uploaded_file, encoding="latin1")
+        df = pd.read_csv(uploaded_file)
 
     st.dataframe(df.head())
 
-        # ===== Sidebar Controls =====
-    st.sidebar.header("⚙ Match Configuration")
-
-    source_col = st.sidebar.selectbox(
-        "Select Source Column",
-        df.columns,
-        index=0
-    )
-
-    target_col = st.sidebar.selectbox(
-        "Select Target Column",
-        df.columns,
-        index=1
-    )
-
-    threshold = st.sidebar.slider(
-        "Match Threshold (%)",
-        min_value=0,
-        max_value=100,
-        value=80
-    )
+    source_col = st.selectbox("Source Column", df.columns, index=0)
+    target_col = st.selectbox("Target Column", df.columns, index=1)
 
     if st.button("🚀 Run Matching"):
 
         source_names = df[source_col].dropna().tolist()
         target_names = df[target_col].dropna().tolist()
 
-        target_clean = [
-            strip_stopwords(clean_text(x))
-            for x in target_names
-        ]
+        target_clean = [strip_stopwords(clean_text(x)) for x in target_names]
 
-        source_clean = [
-            strip_stopwords(clean_text(x))
-            for x in source_names
-        ]
+        results = []
 
-        # ============================================================
-        # FUZZY MATCHING
-        # ============================================================
-
-        rows = []
-
-        for i, name in enumerate(source_names):
-
-            match, score, mtype = find_best_match(
+        for name in source_names:
+            match, score = find_best_match(
                 name,
                 target_clean,
-                target_names,
-                threshold
+                target_names
             )
 
-            rows.append({
+            results.append({
                 source_col: name,
                 "Matched Name": match,
-                "Score": score,
-                "Match Type": mtype
+                "Score": score
             })
 
-        out_df = pd.DataFrame(rows)
-
-        # ============================================================
-        # TRUE EXCEL VLOOKUP SIMULATION USING ORIGINAL DATAFRAME
-        # ============================================================
-
-        # Build lookup set directly from original DF column
-        target_lookup_set = set(
-            df[target_col].astype(str)
-        )
-
-        # Now compare each SOURCE cell directly from out_df
-        out_df["Excel Match Type"] = out_df[source_col].apply(
-            lambda x: "Exact Match"
-            if str(x) in target_lookup_set
-            else "No Match"
-        )
-
+        out_df = pd.DataFrame(results)
 
         st.success("Matching Completed")
         st.dataframe(out_df)
-
-        st.markdown("## 📊 Match Summary Dashboard")
-
-        total_records = len(out_df)
-        total_fuzzy_matches = (out_df["Match Type"] == "High Confidence").sum()
-        total_excel_matches = (out_df["Excel Match Type"] == "Exact Match").sum()
-
-        total_no_matches = (out_df["Match Type"] == "No Match").sum()
-        fuzzy_match_rate = round((total_fuzzy_matches / total_records) * 100, 2) if total_records else 0
-        excel_match_rate = round((total_excel_matches / total_records) * 100, 2) if total_records else 0
-
-
-        st.warning("⚠️ **Important Note:** Matches are subject to manual scrutiny as the algorithm may occasionally produce false positives. Please review results carefully.")
-
-        k1, k2, k3, k4 = st.columns(4)
-
-        k1.metric("📄 Total Records", total_records)
-        k2.metric("🤖 Fuzzy Matches", total_fuzzy_matches)
-        k3.metric("📊 Excel Exact Matches", total_excel_matches)
-        k4.metric("📈 Fuzzy Match Rate", f"{fuzzy_match_rate}%")
-
-        st.info(f"📊 Excel Exact Match Rate (VLOOKUP/XLOOKUP) would be: {excel_match_rate}%")
-        st.info(f"Excel Match is being calculated based on exact name matches, simulating VLOOKUP/XLOOKUP behavior.")
-
 
         csv = out_df.to_csv(index=False).encode("utf-8")
 

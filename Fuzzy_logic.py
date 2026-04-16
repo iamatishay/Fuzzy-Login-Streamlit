@@ -191,7 +191,7 @@ def is_acronym_match(a, b):
         return True
     if len(b_acr) < len(a_acr) and b_acr in a_acr:
         return True
-    if fuzz.ratio(a_acr, b_acr) > 80:
+    if fuzz.ratio(a_acr, b_acr) > 60:
         return True
     return False
 
@@ -349,7 +349,7 @@ def final_match_score(a, b, **kwargs):
     char_match_percent = (common_chars / shorter) * 100 if shorter > 0 else 0
 
     # If first word < 80% → reject completely
-    if char_match_percent < 80:
+    if char_match_percent < 50:
         return 0
 
     # Strong first word score
@@ -368,7 +368,7 @@ def final_match_score(a, b, **kwargs):
     # 80% first word
     # 20% remaining words
     # ---------------------------------------------------
-    final_score = (0.8 * first_word_score) + (0.2 * remaining_score)
+    final_score = (0.6 * first_word_score) + (0.4 * remaining_score)
 
     return round(min(100, final_score), 2)
 

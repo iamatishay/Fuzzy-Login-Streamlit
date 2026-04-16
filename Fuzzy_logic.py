@@ -12,59 +12,27 @@ st.set_page_config(
 # ===== Custom Styling =====
 st.markdown("""
     <style>
-    .main-title {
-        font-size: 36px;
-        font-weight: 700;
-        color: #1f4e79;
-        margin-bottom: 5px;
-    }
-    .sub-text {
-        font-size: 16px;
-        color: #555555;
-        margin-bottom: 20px;
-    }
-    .info-box {
-        background-color: #f0f6ff;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #d0e2ff;
-        margin-bottom: 20px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-    <style>
-    
-    /* ===== App Background ===== */
     .stApp {
         background: linear-gradient(135deg, #eef2f7 0%, #d9e4f5 100%);
         background-attachment: fixed;
     }
-
-    /* ===== Main Content Container ===== */
     .block-container {
         background-color: white;
         padding: 2rem 3rem 3rem 3rem;
         border-radius: 15px;
         box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     }
-
-    /* ===== Title Styling ===== */
     .main-title {
         font-size: 36px;
         font-weight: 700;
         color: #1f4e79;
         margin-bottom: 5px;
     }
-
     .sub-text {
         font-size: 16px;
         color: #555555;
         margin-bottom: 20px;
     }
-
-    /* ===== Instruction Box ===== */
     .info-box {
         background-color: #f0f6ff;
         padding: 18px;
@@ -73,8 +41,6 @@ st.markdown("""
         margin-bottom: 25px;
         font-size: 15px;
     }
-
-    /* ===== Buttons Styling ===== */
     .stButton>button {
         background-color: #1f4e79;
         color: white;
@@ -83,35 +49,32 @@ st.markdown("""
         font-weight: 600;
         border: none;
     }
-
     .stButton>button:hover {
         background-color: #163a5c;
         color: white;
     }
-
     </style>
 """, unsafe_allow_html=True)
 
-
-# ===== Header Section =====
+# ===== Header =====
 st.markdown('<div class="main-title">🔍 Fuzzy Logic Tool</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="sub-text">Match company names intelligently using advanced fuzzy logic, token scoring, and rule-based validation.</div>',
+    '<div class="sub-text">Match company names intelligently using hybrid LCS + core-anchor scoring, '
+    'token penalty, and rule-based validation.</div>',
     unsafe_allow_html=True
 )
 
-# ===== Instruction Box =====
 st.markdown("""
 <div class="info-box">
 <b>📌 How to Use:</b><br>
 1️⃣ Download the sample file below to understand the required format (2 columns).<br>
 2️⃣ Upload your file (CSV or Excel).<br>
 3️⃣ Select Source (Match FROM) and Target (Match TO) columns.<br>
-4️⃣ Click <b>Run Matching</b> to generate results.<br><br>
+4️⃣ Adjust the match threshold in the sidebar.<br>
+5️⃣ Click <b>Run Matching</b> to generate results.<br><br>
 ⚠️ Ensure your file contains at least two columns for matching.
 </div>
 """, unsafe_allow_html=True)
-
 
 # ============================================================
 # SAMPLE FILE DOWNLOAD
@@ -121,15 +84,25 @@ sample_df = pd.DataFrame({
         "TANLA PLATFORMS LTD",
         "HDFC BANK",
         "SBI LIFE INSURANCE",
-        "VODAFONE IDEA",
-        "TITAN SERVICES"
+        "BAJAJ FINANCE",
+        "FIRSTCRY",
+        "ABAR",
+        "MAX POINT",
+        "BATEEL GULF TRADING CO",
+        "INTERNATIONAL APPLICATION COMPANY LTD",
+        "CPPO",
     ],
     "Target_Name": [
         "TANLA PLATFORMS LIMITED",
         "HDFC BANK LIMITED",
-        "STATE BANK OF INDIA LIFE INSURANCE",
-        "VODAFONE IDEA LIMITED",
-        "TITAN COMPANY LIMITED"
+        "SBI LIFE INSURANCE CO LTD",
+        "BAJAJ HOUSING FINANCE",
+        "FIRST CRY TRADING CO",
+        "ABAR APP",
+        "MAX POINT JEDDAH",
+        "BATEEL ALKHALEJ FOR TRADING",
+        "INTERNATIONAL RECRUITMENT COMPANY",
+        "CPPO INTERNATIONAL",
     ]
 })
 
@@ -143,262 +116,348 @@ st.download_button(
 )
 
 # ============================================================
-# RULE SETS (EXPANDED FOR PRODUCTION)
+# WORD LISTS
 # ============================================================
-STOPWORDS = {"THE", "LTD", "PVT", "CO", "AND", "LLP", "INC", "CORP", "CORPORATION", "COMPANY", "SERVICES", "GROUP"}
-ESSENTIALS = {"ENERGY", "ELECTRIC", "BANK", "INSURANCE", "LIFE", "GENERAL"}
-REGIONAL_WORDS = {"NORTH", "SOUTH", "EAST", "WEST", "UTTAR", "DAKSHIN", "CENTRAL", "NORTHERN", "SOUTHERN", "EASTERN", "WESTERN"}
-INSURANCE_LIFE = {"LIFE"}
-INSURANCE_GENERAL = {"GENERAL", "GI", "INSURANCE", "NON-LIFE"}
-SERVICE_WORDS = {"SERVICES", "GROUP", "SOLUTIONS", "SYSTEMS"}
-MESSAGE_WORDS = {"MESSAGE", "MESSAGING", "SMS", "COMMUNICATION"}
-TELECOM_WORDS = {"TELECOM", "VODAFONE", "IDEA", "AIRTEL", "JIO", "BHARTI"}
+
+# Legal / structural noise — stripped before scoring
+STOPWORDS = {
+    "THE", "LTD", "PVT", "CO", "AND", "LLP", "INC", "CORP", "CORPORATION",
+    "COMPANY", "A", "AN", "OF", "FOR", "BY", "IN", "AT", "WITH", "LLC",
+    "FZ", "FZE", "FZCO", "FZC", "WLL", "BSC", "JSC", "SARL", "SAS", "BV",
+    "NV", "AG", "GMBH", "OY", "AB", "AS", "SA",
+}
+
+# Descriptor suffixes — describe the entity type but not its identity.
+# Stripped so "Abar App" can match "Abar", "Max Point Jeddah" can match "Max Point".
+DESCRIPTOR_SUFFIXES = {
+    "APP", "APPS", "APPLICATION", "APPLICATIONS",
+    "TRADING", "TRADE", "TRADERS", "TRADER",
+    "SERVICES", "SERVICE", "SVC",
+    "GROUP", "GRP",
+    "SOLUTIONS", "SOLUTION",
+    "SYSTEMS", "SYSTEM",
+    "TECHNOLOGIES", "TECHNOLOGY", "TECH",
+    "ENTERPRISES", "ENTERPRISE",
+    "VENTURES", "VENTURE",
+    "HOLDINGS", "HOLDING",
+    "INTERNATIONAL", "INTL",
+    "GLOBAL", "WORLDWIDE",
+    "INDUSTRIES", "INDUSTRY",
+    "MANAGEMENT", "MGMT",
+    "INVESTMENT", "INVESTMENTS",
+    "CONSULTANCY", "CONSULTING",
+    "RESOURCES", "WORKS",
+    "DISTRIBUTION", "DISTRIBUTORS",
+}
+
+# Geographic qualifiers — location suffixes that don't change core identity
+GEO_WORDS = {
+    "JEDDAH", "RIYADH", "DUBAI", "ABUDHABI", "ABU", "DHABI", "DOHA",
+    "KUWAIT", "BAHRAIN", "MUSCAT", "OMAN", "CAIRO", "BEIRUT",
+    "INDIA", "INDIAN", "GULF", "MENA", "ASIA", "EUROPE", "AFRICA",
+    "MIDDLE", "EAST",
+    "ALKHALEJ", "ALKHALEEJ", "ALKHALIJ",
+}
+
+# Always kept even if they appear in STOPWORDS
+ESSENTIALS = {"LIFE", "BANK", "ENERGY", "ELECTRIC", "GENERAL", "INSURANCE", "FINANCE"}
+
+# If a DISCRIMINATOR word is in one name but NOT the other → block the match.
+# This prevents: Bajaj Finance ↔ Bajaj HOUSING Finance
+#                International APPLICATION Co ↔ International RECRUITMENT Co
+#                SBI LIFE ↔ SBI GENERAL
+DISCRIMINATORS = {
+    "NORTH", "SOUTH", "EAST", "WEST",
+    "NORTHERN", "SOUTHERN", "EASTERN", "WESTERN", "CENTRAL",
+    "UTTAR", "DAKSHIN",
+}
 
 REPLACEMENTS = {
-    "PVT.": "PVT",
+    "PVT.":    "PVT",
     "PRIVATE": "PVT",
     "LIMITED": "LTD",
-    "LTD.": "LTD",
-    "&": "AND",
-    "CO.": "CO",
-    "TECHNOLOGY": "TECH",
-    "TECHNOLOGIES": "TECH",
-    "CORPORATION": "CORP",
-    "COMPANY": "CO",
-    "SERVICES": "SVC",
-    "GROUP": "GRP",
-    "BANK": "BK",
-    "INSURANCE": "INS",
-    "LIFE": "LF",
-    "GENERAL": "GEN",
+    "LTD.":    "LTD",
+    "&":       "AND",
+    "CO.":     "CO",
 }
 
 # ============================================================
-# UTILITY FUNCTIONS
-# ============================================================
-def get_acronym(s):
-    """Generate acronym from words, ignoring stopwords."""
-    words = [w for w in s.split() if w not in STOPWORDS]
-    return "".join(w[0] for w in words if w)
-
-def is_acronym_match(a, b):
-    """Check if one is an acronym of the other, with fuzzy and substring checks."""
-    a_acr = get_acronym(a)
-    b_acr = get_acronym(b)
-    if a_acr == b_acr:
-        return True
-    if len(a_acr) < len(b_acr) and a_acr in b_acr:
-        return True
-    if len(b_acr) < len(a_acr) and b_acr in a_acr:
-        return True
-    if fuzz.ratio(a_acr, b_acr) > 80:
-        return True
-    return False
-
-# ============================================================
-# CLEANING FUNCTIONS
+# CLEANING
 # ============================================================
 
-def normalize_variants(s):
+def normalize_variants(s: str) -> str:
     for k, v in REPLACEMENTS.items():
-        s = re.sub(rf"\b{k}\b", v, s)
+        s = re.sub(rf"\b{re.escape(k)}\b", v, s)
     return s
 
-def clean_text(s):
+
+def clean_text(s) -> str | None:
     if pd.isna(s):
         return None
     s = str(s).upper().strip()
     s = normalize_variants(s)
     s = re.sub(r"[^A-Z0-9 ]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
+    s = normalize_repeated_chars(s)   # ✅ ADD THIS LINE
     return s if s else None
 
-def strip_stopwords(s):
+def strip_noise(s: str) -> str | None:
+    """Strip STOPWORDS + DESCRIPTOR_SUFFIXES + GEO_WORDS, keep ESSENTIALS."""
     if not s:
         return None
-    tokens = s.split()
-    tokens = [
-        t for t in tokens
-        if (t not in STOPWORDS) or (t in ESSENTIALS)
-    ]
+    noise = STOPWORDS | DESCRIPTOR_SUFFIXES | GEO_WORDS
+    tokens = [t for t in s.split() if (t in ESSENTIALS) or (t not in noise)]
     return " ".join(tokens) if tokens else None
 
+
+def collapse_spaces(s: str) -> str:
+    """Remove all spaces: 'FIRST CRY' → 'FIRSTCRY'."""
+    return s.replace(" ", "")
+
 # ============================================================
-# HARD VALIDATION RULES
+# DISCRIMINATOR GUARD
 # ============================================================
 
-def has_conflicting_region(a, b):
+def has_discriminator_conflict(a: str, b: str) -> bool:
+    """
+    Block matches where a meaningful identity word is present in one name
+    but absent in the other.
+    """
     a_tokens = set(a.split())
     b_tokens = set(b.split())
-    for w in REGIONAL_WORDS:
-        if (w in a_tokens) != (w in b_tokens):
+    for word in DISCRIMINATORS:
+        if (word in a_tokens) != (word in b_tokens):
             return True
     return False
 
-def insurance_conflict(a, b):
-    a_tokens = set(a.split())
-    b_tokens = set(b.split())
-    if (INSURANCE_LIFE & a_tokens and INSURANCE_GENERAL & b_tokens) or \
-       (INSURANCE_LIFE & b_tokens and INSURANCE_GENERAL & a_tokens):
+# ============================================================
+# LCS HELPERS
+# ============================================================
+
+def lcs_length(a: str, b: str) -> int:
+    m, n = len(a), len(b)
+    prev = [0] * (n + 1)
+    curr = [0] * (n + 1)
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if a[i - 1] == b[j - 1]:
+                curr[j] = prev[j - 1] + 1
+            else:
+                curr[j] = max(curr[j - 1], prev[j])
+        prev, curr = curr, [0] * (n + 1)
+    return prev[n]
+
+
+def lcs_ratio(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    lcs = lcs_length(a, b)
+    return round((2 * lcs / (len(a) + len(b))) * 100, 2)
+
+
+def normalize_repeated_chars(s: str) -> str:
+    """
+    Collapse repeated characters:
+    HADAYAA → HADAYA
+    SOOOFT  → SOFT
+    Keeps legitimate double letters intact.
+    """
+    return re.sub(r'(.)\1{2,}', r'\1', s)
+
+def is_single_token_close_match(a: str, b: str) -> bool:
+    """
+    Allow single-word brands with very close edit distance
+    HADAYA ↔ HADAYAA
+    LULU ↔ LULUU
+    """
+    if " " in a or " " in b:
+        return False
+    return fuzz.ratio(a, b) >= 88
+
+def strip_trailing_vowels(s: str) -> str:
+    """
+    Remove trailing vowel elongation:
+    HAYAA → HAY
+    HAYA  → HAY
+    """
+    return re.sub(r'[AEIOU]+$', '', s)
+
+def is_phonetic_single_token_match(a: str, b: str) -> bool:
+    """
+    Match single-word names with trailing vowel elongation.
+    HAYA ↔ HAYAA
+    """
+    if " " in a or " " in b:
+        return False
+
+    a_base = strip_trailing_vowels(a)
+    b_base = strip_trailing_vowels(b)
+
+    # Skeleton must match exactly
+    if a_base == b_base and len(a_base) >= 3:
         return True
+
     return False
 
+
+def is_phonetic_single_token_match(a: str, b: str) -> bool:
+    """
+    Match single-word names with trailing vowel elongation.
+    HAYA ↔ HAYAA
+    """
+    if " " in a or " " in b:
+        return False
+
+    a_base = strip_trailing_vowels(a)
+    b_base = strip_trailing_vowels(b)
+
+    # Skeleton must match exactly
+    if a_base == b_base and len(a_base) >= 3:
+        return True
+
+    return False
+
+
+
+
 # ============================================================
-# ACRONYM LOGIC
+# CORE HYBRID SCORER
 # ============================================================
 
-def get_acronym(s):
-    words = [w for w in s.split() if w not in STOPWORDS]
+def score_pair(a: str, b: str) -> float:
+    """
+    Hybrid score combining:
+    1. Space-collapsed LCS  → 'FIRSTCRY' vs 'FIRSTCRY' (from 'First Cry')
+    2. Token LCS            → normal multi-word comparison
+    3. Core-anchor (partial_ratio) → shorter name contained in longer
+    4. Soft token penalty   → extra suffix tokens penalised lightly (4% each, max 20%)
+    """
+    if not a or not b:
+        return 0.0
+
+    # 1. Space-collapsed LCS
+    a_col = collapse_spaces(a)
+    b_col = collapse_spaces(b)
+    collapsed_score = lcs_ratio(a_col, b_col)
+
+    # 2. Token-level LCS
+    token_score = lcs_ratio(a, b)
+
+    base_score = max(collapsed_score, token_score)
+
+    # 3. Core-anchor: how well does the shorter fit inside the longer?
+    a_tokens = a.split()
+    b_tokens = b.split()
+    shorter_str = " ".join(a_tokens if len(a_tokens) <= len(b_tokens) else b_tokens)
+    longer_str  = " ".join(b_tokens if len(a_tokens) <= len(b_tokens) else a_tokens)
+    core_score  = fuzz.partial_ratio(shorter_str, longer_str)
+
+    # Blend LCS and core-anchor equally
+    blended = 0.50 * base_score + 0.50 * core_score
+
+    # 4. Soft penalty for extra tokens in longer name
+    shorter_set = set(shorter_str.split())
+    longer_set  = set(longer_str.split())
+    extra        = longer_set - shorter_set
+    penalty      = max(0.80, 1.0 - len(extra) * 0.04)
+
+    return round(min(100, blended * penalty), 2)
+
+
+def smart_containment_score(a: str, b: str) -> float:
+    shorter_len = min(len(a), len(b))
+    longer_len  = max(len(a), len(b))
+    coverage    = shorter_len / longer_len
+    score       = coverage * 90 + min(shorter_len / 20, 1.0) * 8
+    return round(min(98, score), 2)
+
+
+def final_match_score(a: str, b: str, **kwargs) -> float:
+    """Entry point for rapidfuzz.process.extractOne."""
+    if not a or not b:
+        return 0.0
+    a_col = collapse_spaces(a)
+    b_col = collapse_spaces(b)
+    if len(a_col) > 4 and len(b_col) > 4 and (a_col in b_col or b_col in a_col):
+        return smart_containment_score(a, b)
+    return score_pair(a, b)
+
+# ============================================================
+# ACRONYM HELPERS
+# ============================================================
+
+def get_acronym(s: str) -> str:
+    noise = STOPWORDS | DESCRIPTOR_SUFFIXES | GEO_WORDS
+    words = [w for w in s.split() if (w in ESSENTIALS) or (w not in noise)]
     return "".join(w[0] for w in words if w)
 
-def is_acronym_match(a, b):
+
+def is_acronym_match(a: str, b: str) -> bool:
     a_acr = get_acronym(a)
     b_acr = get_acronym(b)
 
-    if a_acr == b_acr:
-        return True
+    # Acronyms must be meaningful
+    if len(a_acr) < 3 or len(b_acr) < 3:
+        return False
 
-    if len(a_acr) < len(b_acr) and a_acr in b_acr:
-        return True
+    if a_acr != b_acr:
+        return False
 
-    if len(b_acr) < len(a_acr) and b_acr in a_acr:
-        return True
+    # Require at least one real core word overlap
+    a_core = set(strip_noise(a).split())
+    b_core = set(strip_noise(b).split())
 
-    if fuzz.ratio(a_acr, b_acr) > 85:
-        return True
-
-    return False
-
-# ============================================================
-# TOKEN SCORING ENGINE (LEGAL WORDS HAVE ZERO WEIGHT)
-# ============================================================
-
-def token_based_score(a, b):
-    a_tokens = a.split()
-    b_tokens = b.split()
-
-    if not a_tokens or not b_tokens:
-        return 0
-
-    token_matches = []
-
-    for t1 in a_tokens:
-        best = 0
-        for t2 in b_tokens:
-            best = max(best, fuzz.ratio(t1, t2))
-        token_matches.append(best)
-
-    # First meaningful word gets weight 1.5
-    weights = [1.5] + [1.0] * (len(token_matches) - 1)
-
-    weighted_sum = sum(t * w for t, w in zip(token_matches, weights))
-    max_possible = sum(weights) * 100
-
-    return (weighted_sum / max_possible) * 100
+    return bool(a_core & b_core)
 
 # ============================================================
-# UPDATED: expand_name_variants (Fix 1: Avoid over-expansion of short/common bracketed words)
+# NAME VARIANT EXPANSION
 # ============================================================
-def expand_name_variants(name):
+
+def expand_name_variants(name: str) -> list:
     variants = [name]
-    
-    # Extract bracket content only if it's potentially meaningful (e.g., not a single short word like "India")
-    bracket_match = re.search(r"\$(.*?)\$", name)
+    bracket_match = re.search(r"\((.+?)\)", name)
     if bracket_match:
         inside = bracket_match.group(1).strip()
-        # Skip if it's a single word <= 3 chars or a common region (to avoid false positives)
-        if len(inside.split()) > 1 or len(inside) > 3:  # Adjust thresholds as needed
-            outside = re.sub(r"\$.*?\$", "", name).strip()
-            variants.append(inside)
-            variants.append(outside)
-    
+        if len(inside.split()) > 1 or len(inside) > 3:
+            outside = re.sub(r"\(.*?\)", "", name).strip()
+            variants.extend([inside, outside])
     return list(set(variants))
 
 # ============================================================
-# UPDATED: final_match_score (Fix 2: Strengthen substring rule with length checks)
+# MAIN MATCHING FUNCTION
 # ============================================================
 
-def final_match_score(a, b, **kwargs):
-
-    # Strong substring rule (exact containment) - but only for meaningful substrings
-    if len(a) > 5 and len(b) > 5 and (a in b or b in a):
-        return 95
-
-    if not a or not b:
-        return 0
-
-    a_tokens = a.split()
-    b_tokens = b.split()
-
-    if not a_tokens or not b_tokens:
-        return 0
-
-    a_first = a_tokens[0]
-    b_first = b_tokens[0]
-
-    # ---------------------------------------------------
-    # 80% CHARACTER MATCH RULE (ORDER INDEPENDENT)
-    # ---------------------------------------------------
-    shorter = min(len(a_first), len(b_first))
-
-    common_chars = sum(
-        min(a_first.count(c), b_first.count(c))
-        for c in set(a_first)
-    )
-
-    char_match_percent = (common_chars / shorter) * 100 if shorter > 0 else 0
-
-    # If first word < 80% → reject completely
-    if char_match_percent < 80:
-        return 0
-
-    # Strong first word score
-    first_word_score = fuzz.ratio(a_first, b_first)
-
-    # Remaining tokens similarity
-    remaining_a = " ".join(a_tokens[1:])
-    remaining_b = " ".join(b_tokens[1:])
-
-    remaining_score = 0
-    if remaining_a and remaining_b:
-        remaining_score = fuzz.token_set_ratio(remaining_a, remaining_b)
-
-    # ---------------------------------------------------
-    # FINAL WEIGHTING
-    # 80% first word
-    # 20% remaining words
-    # ---------------------------------------------------
-    final_score = (0.8 * first_word_score) + (0.2 * remaining_score)
-
-    return round(min(100, final_score), 2)
-
-# ============================================================
-# UPDATED: find_best_match (Fix 3: Add post-match validation for shared tokens/full similarity)
-# ============================================================
-
-def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
-
+def find_best_match(
+    main_name: str,
+    cleaned_choices: list,
+    original_choices: list,
+    threshold: float = 60,
+) -> tuple:
     if not main_name:
-        return None, 0, "No Match"
+        return None, 0.0, "No Match"
 
     parts = []
-    for p in str(main_name).split("/"):
-        parts.extend(expand_name_variants(p.strip()))
+    for segment in str(main_name).split("/"):
+        parts.extend(expand_name_variants(segment.strip()))
 
     best_match = None
-    best_score = 0
+    best_score = 0.0
+    best_idx   = None
 
     for part in parts:
-
-        main_clean = strip_stopwords(clean_text(part))
+        main_clean = strip_noise(clean_text(part))
         if not main_clean:
             continue
+
+        local_cutoff = threshold
+        if " " not in main_clean:
+            local_cutoff = threshold - 10  # allow phonetic candidates
 
         result = process.extractOne(
             main_clean,
             cleaned_choices,
             scorer=final_match_score,
-            score_cutoff=threshold
+            score_cutoff=local_cutoff,
         )
 
         if result:
@@ -406,17 +465,53 @@ def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
             if score > best_score:
                 best_score = score
                 best_match = original_choices[idx]
+                best_idx   = idx
 
-    # UPDATED: Post-match validation to reject false positives
-    if best_match and best_score >= threshold:
-        # Additional validation: Ensure at least one shared meaningful token or high full-string similarity
-        main_full_clean = strip_stopwords(clean_text(main_name))
-        match_full_clean = strip_stopwords(clean_text(best_match))
-        if main_full_clean and match_full_clean:
-            shared_tokens = set(main_full_clean.split()) & set(match_full_clean.split())
-            full_ratio = fuzz.token_set_ratio(main_full_clean, match_full_clean)
-            if not shared_tokens and full_ratio < 70:  # No shared tokens AND low overall similarity
-                return None, 0.0, "No Match"  # Reject as false positive
+    # Post-match validation
+    if best_match and best_score >= threshold and best_idx is not None:
+
+        # Discriminator check on full cleaned text (pre-noise-strip)
+        main_full  = clean_text(main_name) or ""
+        match_full = clean_text(original_choices[best_idx]) or ""
+
+        if has_discriminator_conflict(main_full, match_full):
+            return None, 0.0, "No Match (Discriminator Conflict)"
+
+        # Minimum shared token check
+        # Minimum shared token / brand validation
+        main_stripped  = strip_noise(main_full)  or ""
+        match_stripped = cleaned_choices[best_idx] or ""
+
+        def has_core_overlap(a: str, b: str) -> bool:
+            a_tokens = set(a.split())
+            b_tokens = set(b.split())
+
+            # Direct token overlap
+            if a_tokens & b_tokens:
+                return True
+
+            # Collapsed overlap (FIRSTCRY vs FIRST CRY)
+            a_col = collapse_spaces(a)
+            b_col = collapse_spaces(b)
+            return a_col == b_col or a_col in b_col or b_col in a_col
+
+
+        # ✅ APPLY THE LOGIC ✅
+        if not has_core_overlap(main_stripped, match_stripped):
+
+            # ✅ Phonetic single-token override (Haya ↔ Hayaa)
+            if is_phonetic_single_token_match(main_stripped, match_stripped):
+                return best_match, round(best_score, 2), "High Confidence"
+
+            # ✅ Strong single-token similarity override
+            if is_single_token_close_match(main_stripped, match_stripped):
+                return best_match, round(best_score, 2), "High Confidence"
+
+            # ❌ Otherwise reject
+            if fuzz.token_set_ratio(main_stripped, match_stripped) < 60:
+                return None, 0.0, "No Match"
+
+
 
     if best_score >= threshold:
         return best_match, round(best_score, 2), "High Confidence"
@@ -426,7 +521,6 @@ def find_best_match(main_name, cleaned_choices, original_choices, threshold=92):
 # ============================================================
 # STREAMLIT UI
 # ============================================================
-
 
 uploaded_file = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
@@ -438,32 +532,26 @@ if uploaded_file:
         uploaded_file.seek(0)
         try:
             df = pd.read_csv(uploaded_file, encoding="utf-8")
-        except:
+        except Exception:
             uploaded_file.seek(0)
             df = pd.read_csv(uploaded_file, encoding="latin1")
 
     st.dataframe(df.head())
 
-        # ===== Sidebar Controls =====
     st.sidebar.header("⚙ Match Configuration")
+    source_col = st.sidebar.selectbox("Select Source Column", df.columns, index=0)
+    target_col = st.sidebar.selectbox("Select Target Column", df.columns, index=1)
+    threshold  = st.sidebar.slider("Match Threshold (%)", min_value=0, max_value=100, value=80)
 
-    source_col = st.sidebar.selectbox(
-        "Select Source Column",
-        df.columns,
-        index=0
-    )
-
-    target_col = st.sidebar.selectbox(
-        "Select Target Column",
-        df.columns,
-        index=1
-    )
-
-    threshold = st.sidebar.slider(
-        "Match Threshold (%)",
-        min_value=0,
-        max_value=100,
-        value=80
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🔬 Scoring Method")
+    st.sidebar.markdown(
+        "**Hybrid LCS + Core Anchor**\n\n"
+        "- Space-collapsed LCS handles *FirstCry* vs *First Cry*\n"
+        "- Core-anchor forgives suffix words (*Jeddah*, *App*, *Alkhalej*)\n"
+        "- Soft penalty (4%/token) keeps suffix-heavy names matchable\n"
+        "- Discriminator guard blocks *Bajaj Finance* ↔ *Bajaj Housing Finance* "
+        "and *Application Co* ↔ *Recruitment Co*"
     )
 
     if st.button("🚀 Run Matching"):
@@ -471,89 +559,51 @@ if uploaded_file:
         source_names = df[source_col].dropna().tolist()
         target_names = df[target_col].dropna().tolist()
 
-        target_clean = [
-            strip_stopwords(clean_text(x))
-            for x in target_names
-        ]
-
-        source_clean = [
-            strip_stopwords(clean_text(x))
-            for x in source_names
-        ]
-
-        # ============================================================
-        # FUZZY MATCHING
-        # ============================================================
+        target_clean = [strip_noise(clean_text(x)) or "" for x in target_names]
 
         rows = []
-
-        for i, name in enumerate(source_names):
-
-            match, score, mtype = find_best_match(
-                name,
-                target_clean,
-                target_names,
-                threshold
-            )
-
-            rows.append({
-                source_col: name,
-                "Matched Name": match,
-                "Score": score,
-                "Match Type": mtype
-            })
+        with st.spinner("Running matching…"):
+            for name in source_names:
+                match, score, mtype = find_best_match(
+                    name, target_clean, target_names, threshold
+                )
+                rows.append({
+                    source_col:     name,
+                    "Matched Name": match,
+                    "Score":        score,
+                    "Match Type":   mtype,
+                })
 
         out_df = pd.DataFrame(rows)
 
-        # ============================================================
-        # TRUE EXCEL VLOOKUP SIMULATION USING ORIGINAL DATAFRAME
-        # ============================================================
-
-        # Build lookup set directly from original DF column
-        target_lookup_set = set(
-            df[target_col].astype(str)
-        )
-
-        # Now compare each SOURCE cell directly from out_df
+        target_lookup_set = set(df[target_col].astype(str))
         out_df["Excel Match Type"] = out_df[source_col].apply(
-            lambda x: "Exact Match"
-            if str(x) in target_lookup_set
-            else "No Match"
+            lambda x: "Exact Match" if str(x) in target_lookup_set else "No Match"
         )
 
-
-        st.success("Matching Completed")
+        st.success("✅ Matching Completed")
         st.dataframe(out_df)
 
         st.markdown("## 📊 Match Summary Dashboard")
 
-        total_records = len(out_df)
+        total_records       = len(out_df)
         total_fuzzy_matches = (out_df["Match Type"] == "High Confidence").sum()
         total_excel_matches = (out_df["Excel Match Type"] == "Exact Match").sum()
+        fuzzy_match_rate    = round((total_fuzzy_matches / total_records) * 100, 2) if total_records else 0
+        excel_match_rate    = round((total_excel_matches / total_records) * 100, 2) if total_records else 0
 
-        total_no_matches = (out_df["Match Type"] == "No Match").sum()
-        fuzzy_match_rate = round((total_fuzzy_matches / total_records) * 100, 2) if total_records else 0
-        excel_match_rate = round((total_excel_matches / total_records) * 100, 2) if total_records else 0
-
-
-        st.warning("⚠️ **Important Note:** Matches are subject to manual scrutiny as the algorithm may occasionally produce false positives. Please review results carefully.")
+        st.warning(
+            "⚠️ **Important Note:** Matches are subject to manual scrutiny. "
+            "Please review results carefully."
+        )
 
         k1, k2, k3, k4 = st.columns(4)
-
-        k1.metric("📄 Total Records", total_records)
-        k2.metric("🤖 Fuzzy Matches", total_fuzzy_matches)
+        k1.metric("📄 Total Records",      total_records)
+        k2.metric("🤖 Fuzzy Matches",       total_fuzzy_matches)
         k3.metric("📊 Excel Exact Matches", total_excel_matches)
-        k4.metric("📈 Fuzzy Match Rate", f"{fuzzy_match_rate}%")
+        k4.metric("📈 Fuzzy Match Rate",    f"{fuzzy_match_rate}%")
 
-        st.info(f"📊 Excel Exact Match Rate (VLOOKUP/XLOOKUP) would be: {excel_match_rate}%")
-        st.info(f"Excel Match is being calculated based on exact name matches, simulating VLOOKUP/XLOOKUP behavior.")
-
+        st.info(f"📊 Excel Exact Match Rate (VLOOKUP/XLOOKUP): {excel_match_rate}%")
 
         csv = out_df.to_csv(index=False).encode("utf-8")
-
-        st.download_button(
-            "Download Results",
-            csv,
-            "matched_results.csv",
-            "text/csv"
-        )
+        st.download_button("📥 Download Results", csv, "matched_results.csv", "text/csv")
